@@ -4,7 +4,6 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.support.v4.print.PrintHelper;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
@@ -13,7 +12,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,6 +20,7 @@ public class PhotoGalleryFragment extends Fragment {
     private final String TAG = "mLog";
     private RecyclerView mRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
+    private int page = 1;
 
     public static PhotoGalleryFragment newInstance()
     {
@@ -32,7 +31,7 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemsTask().execute();
+        new FetchItemsTask().execute(page++);
     }
 
     @Nullable
@@ -40,8 +39,18 @@ public class PhotoGalleryFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
         mRecyclerView = (RecyclerView) view.findViewById(R.id.fragment_photo_galery_recycler_view);
-        mRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+        final GridLayoutManager mLayoutManager = new GridLayoutManager(getActivity(), 3);
+        mRecyclerView.setLayoutManager(mLayoutManager);
         setupAdapter();
+        mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView,dx,dy);
+                if (!recyclerView.canScrollVertically(1)) {
+                    new FetchItemsTask().execute(page++);
+                }
+            }
+        });
         return view;
     }
 
@@ -61,15 +70,16 @@ public class PhotoGalleryFragment extends Fragment {
         }
         public void bindGalleryItem(GalleryItem item) {
             mTitleTextView.setText(item.toString());
+            Log.i("mLog", "item.toString()= "+ item.toString());
         }
     }
 
     private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder>
     {
-        private List<GalleryItem> mGaleryItems;
+        private List<GalleryItem> mGalleryItems;
 
-        public PhotoAdapter(List<GalleryItem> mGaleryItems) {
-            this.mGaleryItems = mGaleryItems;
+        public PhotoAdapter(List<GalleryItem> mGalleryItems) {
+            this.mGalleryItems = mGalleryItems;
         }
 
         @Override
@@ -80,27 +90,35 @@ public class PhotoGalleryFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
-            holder.bindGalleryItem(mGaleryItems.get(position));
+            holder.bindGalleryItem(mGalleryItems.get(position));
+            Log.i("mLog", "pos= "+ position);
         }
 
         @Override
         public int getItemCount() {
-            return mGaleryItems.size();
+            return mGalleryItems.size();
         }
     }
 
-    private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>>
+    private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>>
     {
-
         @Override
-        protected List<GalleryItem> doInBackground(Void... voids) {
-          return new FlickrFetchr().fetchItems();
+        protected List<GalleryItem> doInBackground(Integer... integers) {
+            return new FlickrFetchr().fetchItems(integers[0]);
         }
 
         @Override
         protected void onPostExecute(List<GalleryItem> items) {
-            mItems = items;
-            setupAdapter();
+//            mItems = items;
+//            setupAdapter();
+            if(page > 1){
+                mItems.addAll(items);
+                mRecyclerView.getAdapter().notifyDataSetChanged();
+            }
+            else{
+                mItems = items;
+                setupAdapter();
+            }
         }
     }
 
