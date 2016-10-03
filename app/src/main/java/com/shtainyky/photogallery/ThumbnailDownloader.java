@@ -48,7 +48,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                 if (msg.what == MESSAGE_DOWNLOAD)
                 {
                     T target = (T)msg.obj;
-                    Log.i(TAG, "Got request for URL: " + mRequestMap.get(target));
+                   // Log.i(TAG, "Got request for URL: " + mRequestMap.get(target));
                     handleRequest(target);
                 }
             }
@@ -72,7 +72,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                     mThumbnailDownloadListener.onThumbnailDownloaded(target, bitmap);
                 }
             });
-            Log.i(TAG, "Bitmap created");
+           // Log.i(TAG, "Bitmap created");
         } catch (IOException ioe) {
             Log.e(TAG, "Error downloading image", ioe);
         }
@@ -82,7 +82,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     }
     public void quequeThumbnail(T target, String url)
     {
-        Log.i(TAG, "Got a Url: " + url);
+        //Log.i(TAG, "Got a Url: " + url);
 
         if (url == null) {
             mRequestMap.remove(target);

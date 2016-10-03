@@ -1,5 +1,6 @@
 package com.shtainyky.photogallery;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
@@ -11,9 +12,13 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
@@ -41,7 +46,8 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemsTask().execute(page++);
+        setHasOptionsMenu(true);
+        updateItems();
 
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -68,21 +74,14 @@ public class PhotoGalleryFragment extends Fragment {
             @Override
             public void onGlobalLayout() {
                 Display display = getActivity().getWindowManager().getDefaultDisplay();
-                int orient = display.getOrientation();
-                Log.i("mLog", "getOrientation= "+ orient);
-                Log.i("mLog", "getHeight= "+ display.getHeight());
-                Log.i("mLog", "getWidth= "+ display.getWidth());
-                int temp_width = display.getHeight() / 200;
+                int temp_width = display.getHeight() / 250;
                 if (temp_width - 1 > 3) {
                     column = temp_width;
-                    Log.i("mLog", "column= " + column);
                 }
                 else {
-
-                    temp_width = display.getHeight() / 200;
+                    temp_width = display.getHeight() / 250;
                     if (temp_width - 1 > 3)
                         column = temp_width;
-                    Log.i("mLog", "column= " + column);
                 }
 
 
@@ -96,7 +95,7 @@ public class PhotoGalleryFragment extends Fragment {
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView,dx,dy);
                 if (!recyclerView.canScrollVertically(1)) {
-                    new FetchItemsTask().execute(page++);
+                    updateItems();
                 }
             }
         });
@@ -116,9 +115,68 @@ public class PhotoGalleryFragment extends Fragment {
         Log.i("mLog", "Background thread destroyed" );
     }
 
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery, menu);
+
+        MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchView = (SearchView)searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                Log.d(TAG, "QueryTextSubmit: " + query);
+                QueryPreferences.setStoredQuery(getActivity(), query);
+                newQuery();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                Log.d(TAG, "QueryTextChange: " + newText);
+                return false;
+            }
+        });
+        searchView.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String query = QueryPreferences.getStoredQuery(getActivity());
+                searchView.setQuery(query, false);
+            }
+        });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId())
+        {
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getActivity(), null);
+                newQuery();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+
+    }
+
+    private void updateItems() {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        Log.d(TAG, "UP query " + query);
+        new FetchItemsTask(query).execute(page++);
+    }
+
+    private void newQuery()
+    {
+        Intent intent = getActivity().getIntent();
+        getActivity().finish();
+        startActivity(intent);
+    }
     private void setupAdapter() {
         if (isAdded())
             mRecyclerView.setAdapter(new PhotoAdapter(mItems));
+
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder
@@ -165,15 +223,29 @@ public class PhotoGalleryFragment extends Fragment {
 
     private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>>
     {
+        private String mQuery;
+
+         public FetchItemsTask(String query) {
+            this.mQuery = query;
+             Log.d(TAG, "doInBackground mQuery " + mQuery);
+        }
+
         @Override
         protected List<GalleryItem> doInBackground(Integer... integers) {
-            return new FlickrFetchr().fetchItems(integers[0]);
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos(integers[0]);
+            } else {
+                return new FlickrFetchr().searchPhotos(mQuery, integers[0]);
+
+
+            }
         }
 
         @Override
         protected void onPostExecute(List<GalleryItem> items) {
 //            mItems = items;
 //            setupAdapter();
+            Log.d(TAG, "onPostExecute mQuery " + mQuery);
             if(page > 1){
                 mItems.addAll(items);
                 mRecyclerView.getAdapter().notifyDataSetChanged();
