@@ -2,7 +2,6 @@ package com.shtainyky.photogallery;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
@@ -23,7 +22,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +32,7 @@ public class PhotoGalleryFragment extends Fragment {
     private RecyclerView mRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
-    private int page = 1;
+    private int page = 0;
     private int column = 3;
 
     public static PhotoGalleryFragment newInstance()
@@ -96,6 +94,7 @@ public class PhotoGalleryFragment extends Fragment {
                 super.onScrolled(recyclerView,dx,dy);
                 if (!recyclerView.canScrollVertically(1)) {
                     updateItems();
+                    Log.i(TAG, "GOT PAGE on Scroll"+ page);
                 }
             }
         });
@@ -145,6 +144,11 @@ public class PhotoGalleryFragment extends Fragment {
                 searchView.setQuery(query, false);
             }
         });
+        MenuItem item = menu.findItem(R.id.menu_item_toggle_polling);
+        if (PollService.isServiceAlarmOn(getActivity()))
+            item.setTitle(R.string.stop_polling);
+        else
+            item.setTitle(R.string.start_polling);
     }
 
     @Override
@@ -155,6 +159,11 @@ public class PhotoGalleryFragment extends Fragment {
                 QueryPreferences.setStoredQuery(getActivity(), null);
                 newQuery();
                 return true;
+            case R.id.menu_item_toggle_polling:
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
+                PollService.setServiceAlarm(getActivity(), shouldStartAlarm);
+                getActivity().invalidateOptionsMenu();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -164,7 +173,9 @@ public class PhotoGalleryFragment extends Fragment {
     private void updateItems() {
         String query = QueryPreferences.getStoredQuery(getActivity());
         Log.d(TAG, "UP query " + query);
-        new FetchItemsTask(query).execute(page++);
+        new FetchItemsTask(query).execute(++page);
+        QueryPreferences.setPrefLastPage(getActivity(),page);
+        Log.i(TAG, " GOT PAGE "+ page);
     }
 
     private void newQuery()
@@ -172,6 +183,7 @@ public class PhotoGalleryFragment extends Fragment {
         Intent intent = getActivity().getIntent();
         getActivity().finish();
         startActivity(intent);
+        page = 0;
     }
     private void setupAdapter() {
         if (isAdded())
