@@ -35,8 +35,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
     private int page = 0;
     private int column = 3;
 
-    public static PhotoGalleryFragment newInstance()
-    {
+    public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
     }
 
@@ -75,8 +74,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
                 int temp_width = display.getHeight() / 250;
                 if (temp_width - 1 > 3) {
                     column = temp_width;
-                }
-                else {
+                } else {
                     temp_width = display.getHeight() / 250;
                     if (temp_width - 1 > 3)
                         column = temp_width;
@@ -91,10 +89,10 @@ public class PhotoGalleryFragment extends VisibleFragment {
         mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView,dx,dy);
+                super.onScrolled(recyclerView, dx, dy);
                 if (!recyclerView.canScrollVertically(1)) {
                     updateItems();
-                    Log.i(TAG, "GOT PAGE on Scroll"+ page);
+                    Log.i(TAG, "GOT PAGE on Scroll" + page);
                 }
             }
         });
@@ -111,7 +109,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
     public void onDestroy() {
         super.onDestroy();
         mThumbnailDownloader.quit();
-        Log.i("mLog", "Background thread destroyed" );
+        Log.i("mLog", "Background thread destroyed");
     }
 
     @Override
@@ -120,7 +118,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
         inflater.inflate(R.menu.fragment_photo_gallery, menu);
 
         MenuItem searchItem = menu.findItem(R.id.menu_item_search);
-        final SearchView searchView = (SearchView)searchItem.getActionView();
+        final SearchView searchView = (SearchView) searchItem.getActionView();
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -153,8 +151,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId())
-        {
+        switch (item.getItemId()) {
             case R.id.menu_item_clear:
                 QueryPreferences.setStoredQuery(getActivity(), null);
                 newQuery();
@@ -174,39 +171,52 @@ public class PhotoGalleryFragment extends VisibleFragment {
         String query = QueryPreferences.getStoredQuery(getActivity());
         Log.d(TAG, "UP query " + query);
         new FetchItemsTask(query).execute(++page);
-        QueryPreferences.setPrefLastPage(getActivity(),page);
-        Log.i(TAG, " GOT PAGE "+ page);
+        QueryPreferences.setPrefLastPage(getActivity(), page);
+        Log.i(TAG, " GOT PAGE " + page);
     }
 
-    private void newQuery()
-    {
+    private void newQuery() {
         Intent intent = getActivity().getIntent();
         getActivity().finish();
         startActivity(intent);
         page = 0;
     }
+
     private void setupAdapter() {
         if (isAdded())
             mRecyclerView.setAdapter(new PhotoAdapter(mItems));
 
     }
 
-    private class PhotoHolder extends RecyclerView.ViewHolder
-    {
+    private class PhotoHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         private ImageView mItemImageView;
+        private GalleryItem mGalleryItem;
 
 
         public PhotoHolder(View itemView) {
             super(itemView);
-            mItemImageView = (ImageView)itemView.findViewById(R.id.fragment_photo_gallery_image_view);
+            mItemImageView = (ImageView) itemView.findViewById(R.id.fragment_photo_gallery_image_view);
+            itemView.setOnClickListener(this);
         }
+
         public void bindDrawable(Drawable drawable) {
             mItemImageView.setImageDrawable(drawable);
         }
+
+        public void bindGalleryItem(GalleryItem galleryItem) {
+            mGalleryItem = galleryItem;
+        }
+
+        @Override
+        public void onClick(View v) {
+//            Intent intent = new Intent(Intent.ACTION_VIEW, mGalleryItem.getPhotoPageUri());
+//            startActivity(intent);
+            Intent intent = PhotoPageActivity.newIntent(getContext(), mGalleryItem.getPhotoPageUri());
+            startActivity(intent);
+        }
     }
 
-    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder>
-    {
+    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
         private List<GalleryItem> mGalleryItems;
 
         public PhotoAdapter(List<GalleryItem> mGalleryItems) {
@@ -215,16 +225,18 @@ public class PhotoGalleryFragment extends VisibleFragment {
 
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-          LayoutInflater inflater = LayoutInflater.from(getActivity());
+            LayoutInflater inflater = LayoutInflater.from(getActivity());
             View view = inflater.inflate(R.layout.gallery_item, parent, false);
             return new PhotoHolder(view);
         }
 
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
+            GalleryItem galleryItem = mGalleryItems.get(position);
+            holder.bindGalleryItem(galleryItem);
             Drawable drawable = getResources().getDrawable(R.drawable.bill_up_close);
             holder.bindDrawable(drawable);
-            mThumbnailDownloader.quequeThumbnail(holder, mGalleryItems.get(position).getUrl());
+            mThumbnailDownloader.quequeThumbnail(holder, galleryItem.getUrl());
         }
 
         @Override
@@ -233,13 +245,12 @@ public class PhotoGalleryFragment extends VisibleFragment {
         }
     }
 
-    private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>>
-    {
+    private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>> {
         private String mQuery;
 
-         public FetchItemsTask(String query) {
+        public FetchItemsTask(String query) {
             this.mQuery = query;
-             Log.d(TAG, "doInBackground mQuery " + mQuery);
+            Log.d(TAG, "doInBackground mQuery " + mQuery);
         }
 
         @Override
@@ -258,11 +269,10 @@ public class PhotoGalleryFragment extends VisibleFragment {
 //            mItems = items;
 //            setupAdapter();
             Log.d(TAG, "onPostExecute mQuery " + mQuery);
-            if(page > 1){
+            if (page > 1) {
                 mItems.addAll(items);
                 mRecyclerView.getAdapter().notifyDataSetChanged();
-            }
-            else{
+            } else {
                 mItems = items;
                 setupAdapter();
             }
